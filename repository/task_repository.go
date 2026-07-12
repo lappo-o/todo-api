@@ -5,19 +5,6 @@ import (
 	"myapp/model"
 )
 
-// type TaskRepository struct {
-// 	tasks []model.Task
-// }
-
-// func NewTaskRepository() *TaskRepository {
-// 	return &TaskRepository{
-// 		tasks: []model.Task{
-// 			{ID: 1, Text: "купить хлеб"},
-// 			{ID: 2, Text: "выучить go"},
-// 		},
-// 	}
-// }
-
 type TaskRepository struct {
 	db *sql.DB
 }
@@ -26,53 +13,52 @@ func NewTaskRepository(db *sql.DB) *TaskRepository {
 	return &TaskRepository{db: db}
 }
 
-func (r *TaskRepository) GetAll() ([]model.Task, error) {
-	rows, err := r.db.Query("SELECT id, text FROM tasks")
+func (r *TaskRepository) GetAll(userID int) ([]model.Task, error) {
+	rows, err := r.db.Query("SELECT user_id, id, text FROM tasks WHERE user_id = $1", userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	var tasks []model.Task
-
 	for rows.Next() {
 		var t model.Task
-		if err := rows.Scan(&t.ID, &t.Text); err != nil {
+		if err := rows.Scan(&t.UserID, &t.ID, &t.Text); err != nil {
 			return nil, err
 		}
 		tasks = append(tasks, t)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return tasks, nil
 }
 
-func (r *TaskRepository) Add(text string) (model.Task, error) {
-	res, err := r.db.Exec(
-		"INSERT INTO tasks (text) VALUES (?)",
-		text,
-	)
-	if err != nil {
-		return model.Task{}, err
-	}
-
-	id, err := res.LastInsertId()
+func (r *TaskRepository) Add(userID int, text string) (model.Task, error) {
+	var id int
+	err := r.db.QueryRow(
+		"INSERT INTO tasks (user_id, text) VALUES ($1, $2) RETURNING id",
+		userID, text,
+	).Scan(&id)
 	if err != nil {
 		return model.Task{}, err
 	}
 
 	return model.Task{
-		ID:   int(id),
-		Text: text,
+		UserID: userID,
+		ID:     int(id),
+		Text:   text,
 	}, nil
 }
 
-func (r *TaskRepository) FindByID(id int) (model.Task, error) {
+func (r *TaskRepository) FindByID(userID int, id int) (model.Task, error) {
 	var t model.Task
-
 	err := r.db.QueryRow(
-		"SELECT id, text FROM tasks WHERE id = ?",
+		"SELECT user_id, id, text FROM tasks WHERE id = $1",
 		id,
-	).Scan(&t.ID, &t.Text)
+	).Scan(&t.UserID, &t.ID, &t.Text)
 	if err == sql.ErrNoRows {
 		return model.Task{}, model.ErrNotFound
 	}
@@ -80,8 +66,8 @@ func (r *TaskRepository) FindByID(id int) (model.Task, error) {
 	return t, err
 }
 
-func (r *TaskRepository) Delete(id int) error {
-	res, err := r.db.Exec("DELETE FROM tasks WHERE id = ?", id)
+func (r *TaskRepository) Delete(userID int, id int) error {
+	res, err := r.db.Exec("DELETE FROM tasks WHERE id = $1", id)
 	if err != nil {
 		return err
 	}
@@ -94,9 +80,9 @@ func (r *TaskRepository) Delete(id int) error {
 	return nil
 }
 
-func (r *TaskRepository) Update(id int, text string) (model.Task, error) {
+func (r *TaskRepository) Update(userID int, id int, text string) (model.Task, error) {
 	res, err := r.db.Exec(
-		"UPDATE tasks SET text = ? WHERE id = ?",
+		"UPDATE tasks SET text = $1 WHERE id = $2",
 		text, id,
 	)
 	if err != nil {
@@ -108,5 +94,14 @@ func (r *TaskRepository) Update(id int, text string) (model.Task, error) {
 		return model.Task{}, model.ErrNotFound
 	}
 
-	return model.Task{ID: id, Text: text}, nil
+	return model.Task{UserID: userID, ID: id, Text: text}, nil
+}
+
+func (r *TaskRepository) Count() (int, error) {
+	var count int
+	err := r.db.QueryRow("SELECT COUNT(*) FROM tasks").Scan(&count)
+	if err != nil {
+		return count, err
+	}
+	return count, nil
 }

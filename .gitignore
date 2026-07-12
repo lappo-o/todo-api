@@ -1,2 +1,5 @@
-tasks.db
+.env
+*.db
+*.exe
+/tmp
 .vscode/

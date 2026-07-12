@@ -3,6 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"myapp/auth"
 	"myapp/handler/dto"
 	"myapp/model"
 	"myapp/service"
@@ -17,8 +19,14 @@ type Handler struct {
 }
 
 func (h *Handler) GetTasks(w http.ResponseWriter, r *http.Request) {
-	tasks, err := h.Service.GetAll()
+	userID, ok := auth.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	tasks, err := h.Service.GetAll(userID)
 	if err != nil {
+		fmt.Println("Ошибка в хендлере задач:", err)
 		handleError(w, err)
 		return
 	}
@@ -26,13 +34,18 @@ func (h *Handler) GetTasks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetTaskByID(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		handleError(w, err)
 		return
 	}
-	task, err := h.Service.GetByID(id)
+	task, err := h.Service.GetByID(userID, id)
 	if err != nil {
 		handleError(w, err)
 		return
@@ -41,13 +54,19 @@ func (h *Handler) GetTaskByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	var req dto.CreateTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		handleError(w, err)
 		return
 	}
-	newTask, err := h.Service.CreateTask(req.Text)
+	newTask, err := h.Service.CreateTask(userID, req.Text)
 	if err != nil {
+		fmt.Println("Ошибка в хендлере задач:", err)
 		handleError(w, err)
 		return
 	}
@@ -55,6 +74,11 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	var req dto.UpdateTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		handleError(w, err)
@@ -66,7 +90,7 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		handleError(w, err)
 		return
 	}
-	task, err := h.Service.Update(id, req.Text)
+	task, err := h.Service.Update(userID, id, req.Text)
 	if err != nil {
 		handleError(w, err)
 		return
@@ -75,13 +99,18 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		handleError(w, err)
 		return
 	}
-	err = h.Service.Delete(id)
+	err = h.Service.Delete(userID, id)
 	if err != nil {
 		handleError(w, err)
 		return
