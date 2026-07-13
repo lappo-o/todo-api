@@ -57,22 +57,19 @@ func ValidateToken(tokenString string) (int, error) {
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 1. Достаем заголовок Authorization из запроса
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
 			http.Error(w, "missing authorization header", http.StatusUnauthorized)
 			return
 		}
-		// Заголовок должен быть в формате: "Bearer <токен>"
-		// Разрезаем строку по пробелу
+
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
 			http.Error(w, "invalid authorization format", http.StatusUnauthorized)
 			return
 		}
-		tokenString := parts[1] // Вот наш чистый токен
+		tokenString := parts[1]
 
-		// 2. Валидируем токен (вызываем твою функцию ValidateToken из задания №20)
 		userID, err := ValidateToken(tokenString)
 		if err != nil {
 			fmt.Println("Ошибка валидации токена:", err)
@@ -80,11 +77,8 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// 3. Кладем userID в контекст запроса с помощью нашего ключа UserIDKey
 		ctx := context.WithValue(r.Context(), UserIDKey, userID)
 
-		// 4. Нажимаем кнопку "Плей" — передаем управление следующему хендлеру (например, CreateTask)
-		// Но передаем уже ОБНОВЛЕННЫЙ запрос r, внутри которого в контексте лежит наш userID
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
