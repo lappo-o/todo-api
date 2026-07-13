@@ -56,8 +56,8 @@ func (r *TaskRepository) Add(userID int, text string) (model.Task, error) {
 func (r *TaskRepository) FindByID(userID int, id int) (model.Task, error) {
 	var t model.Task
 	err := r.db.QueryRow(
-		"SELECT user_id, id, text FROM tasks WHERE id = $1",
-		id,
+		"SELECT user_id, id, text FROM tasks WHERE id = $1 AND user_id = $2",
+		id, userID,
 	).Scan(&t.UserID, &t.ID, &t.Text)
 	if err == sql.ErrNoRows {
 		return model.Task{}, model.ErrNotFound
@@ -67,7 +67,7 @@ func (r *TaskRepository) FindByID(userID int, id int) (model.Task, error) {
 }
 
 func (r *TaskRepository) Delete(userID int, id int) error {
-	res, err := r.db.Exec("DELETE FROM tasks WHERE id = $1", id)
+	res, err := r.db.Exec("DELETE FROM tasks WHERE id = $1 AND user_id = $2", id, userID)
 	if err != nil {
 		return err
 	}
@@ -82,8 +82,8 @@ func (r *TaskRepository) Delete(userID int, id int) error {
 
 func (r *TaskRepository) Update(userID int, id int, text string) (model.Task, error) {
 	res, err := r.db.Exec(
-		"UPDATE tasks SET text = $1 WHERE id = $2",
-		text, id,
+		"UPDATE tasks SET text = $1 WHERE id = $2 AND user_id = $3",
+		text, id, userID,
 	)
 	if err != nil {
 		return model.Task{}, err
